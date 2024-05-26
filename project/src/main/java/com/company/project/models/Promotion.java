@@ -9,8 +9,7 @@ public class Promotion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private List<Long> productIds; // Id-urile produselor incluse în promoție
-
+    private List<Long> productIds;// Id-urile produselor incluse în promoție
     // Constructor implicit
     public Promotion() {
         // Constructor implicit necesar pentru JPA

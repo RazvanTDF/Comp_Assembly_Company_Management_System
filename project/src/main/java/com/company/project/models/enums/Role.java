@@ -4,5 +4,6 @@ public enum Role {
     CLIENT,
     JUNIOR,
     SENIOR,
-    UNREGISTERED
+    MANAGER,
+    UNREGISTERED,
 }

@@ -2,6 +2,7 @@ package com.company.project;
 
 import com.company.project.controllers.*;
 import com.company.project.models.*;
+import com.company.project.models.enums.ProductType;
 import com.company.project.models.enums.Role;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -14,21 +15,17 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.company.project.models.enums.ProductType.DESKTOP_PC;
-
 @EnableJpaRepositories
 @SpringBootApplication
 public class ProjectApplication extends Application {
 
-    public static void main(String[] args) {
-        launch();
-    }
-
+    private ConfigurableApplicationContext context;
     private ProductController productController;
     private PersonController personController;
     private PurchaseOrderController purchaseOrderController;
@@ -36,26 +33,30 @@ public class ProjectApplication extends Application {
 
     private Person currentPerson;
 
+    public static void main(String[] args) {
+        launch(args);
+    }
+
     @Override
-    public void start(Stage stage) throws Exception {
-        var context = org.springframework.boot.SpringApplication.run(ProjectApplication.class);
-        var fxml = new FXMLLoader(getClass().getResource("/Main.fxml"));
-
-        var scene = new Scene(fxml.load());
-
-        //asta aici este exemplu de cum iei din spring si pui aici
-        String title = context.getBean("title", String.class);
-
+    public void init() throws Exception {
+        context = org.springframework.boot.SpringApplication.run(ProjectApplication.class);
         productController = context.getBean(ProductController.class);
         personController = context.getBean(PersonController.class);
         purchaseOrderController = context.getBean(PurchaseOrderController.class);
         promotionController = context.getBean(PromotionController.class);
-
-        initial(stage);
     }
 
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        initial(primaryStage);
+    }
 
-    public void initial(Stage primaryStage) throws Exception {
+    @Override
+    public void stop() throws Exception {
+        context.close();
+    }
+
+    public void initial(Stage primaryStage) {
         primaryStage.setTitle("Sistem de Management al Producției");
 
         // Ecranul de autentificare
@@ -66,10 +67,10 @@ public class ProjectApplication extends Application {
         loginGrid.setHgap(10);
 
         // Câmpurile de autentificare
-        Label UsernameLabel = new Label("Username:");
-        GridPane.setConstraints(UsernameLabel, 0, 0);
-        TextField UsernameInput = new TextField();
-        GridPane.setConstraints(UsernameInput, 1, 0);
+        Label usernameLabel = new Label("Username:");
+        GridPane.setConstraints(usernameLabel, 0, 0);
+        TextField usernameInput = new TextField();
+        GridPane.setConstraints(usernameInput, 1, 0);
 
         Label passwordLabel = new Label("Password:");
         GridPane.setConstraints(passwordLabel, 0, 1);
@@ -79,10 +80,10 @@ public class ProjectApplication extends Application {
         Button loginButton = new Button("Login");
         GridPane.setConstraints(loginButton, 1, 2);
         loginButton.setOnAction(e -> {
-            String Username = UsernameInput.getText();
+            String username = usernameInput.getText();
             String password = passwordInput.getText();
-            currentPerson = personController.getPersonByUsername(Username);
-            if (currentPerson.getPassword().equals(password)) {
+            currentPerson = personController.getPersonByUsername(username);
+            if (currentPerson != null && currentPerson.getPassword().equals(password)) {
                 showMainScreen(primaryStage);
             } else {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -91,12 +92,11 @@ public class ProjectApplication extends Application {
             }
         });
 
-        loginGrid.getChildren().addAll(UsernameLabel, UsernameInput, passwordLabel, passwordInput, loginButton);
+        loginGrid.getChildren().addAll(usernameLabel, usernameInput, passwordLabel, passwordInput, loginButton);
         loginPane.setCenter(loginGrid);
         Scene loginScene = new Scene(loginPane, 400, 300);
         primaryStage.setScene(loginScene);
         primaryStage.show();
-
     }
 
     private void showMainScreen(Stage primaryStage) {
@@ -106,13 +106,18 @@ public class ProjectApplication extends Application {
         // Tab-ul pentru Produse
         Tab productsTab = new Tab("Produse");
         VBox productsLayout = new VBox();
+        productsLayout.setPadding(new Insets(10));
+        productsLayout.setSpacing(10);
         productsLayout.getChildren().add(new Label("Catalog Produse:"));
         ListView<String> productList = new ListView<>();
+        updateProductList(productList);
         productsLayout.getChildren().add(productList);
 
         // Funcționalități pentru manager pentru produse
         if (currentPerson.getRole() == Role.SENIOR) {
-            HBox addProductBox = new HBox();
+            HBox addProductBox = new HBox(10);
+            addProductBox.setPadding(new Insets(10));
+
             TextField productNameInput = new TextField();
             productNameInput.setPromptText("Nume produs");
             TextField productPriceInput = new TextField();
@@ -121,29 +126,50 @@ public class ProjectApplication extends Application {
             productDescriptionInput.setPromptText("Descriere");
             TextField productRatingInput = new TextField();
             productRatingInput.setPromptText("Rating");
-            ComboBox<String> productCategoryInput = new ComboBox<>();
-            productCategoryInput.getItems().addAll("Desktop PC", "Laptop PC", "Imprimante", "Periferice", "Componente");
+            ComboBox<ProductType> productCategoryInput = new ComboBox<>();
+            productCategoryInput.getItems().addAll(ProductType.values());
             productCategoryInput.setPromptText("Categorie");
             Button addProductButton = new Button("Adaugă Produs");
 
             addProductButton.setOnAction(e -> {
                 String name = productNameInput.getText();
-                double price = Double.parseDouble(productPriceInput.getText());
+                String priceText = productPriceInput.getText();
                 String description = productDescriptionInput.getText();
-                int rating = Integer.parseInt(productRatingInput.getText());
-                String category = productCategoryInput.getValue();
+                String ratingText = productRatingInput.getText();
+                ProductType category = productCategoryInput.getValue();
 
-                Product product = new Product();
-                //name, price, description, rating, category
-                product.setName(name);
-                product.setPrice(price);
-                product.setDescription(description);
-                product.setStars(rating);
-                product.setType(DESKTOP_PC);
+                if (name.isEmpty() || priceText.isEmpty() || description.isEmpty() || ratingText.isEmpty() || category == null) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Toate câmpurile trebuie completate.");
+                    alert.showAndWait();
+                    return;
+                }
 
+                try {
+                    double price = Double.parseDouble(priceText);
+                    int rating = Integer.parseInt(ratingText);
 
-                productController.addProduct(product);
-                updateProductList(productList);
+                    Product product = new Product();
+                    product.setName(name);
+                    product.setPrice(price);
+                    product.setDescription(description);
+                    product.setStars(rating);
+                    product.setType(category);
+
+                    productController.addProduct(product);
+                    updateProductList(productList);
+
+                    productNameInput.clear();
+                    productPriceInput.clear();
+                    productDescriptionInput.clear();
+                    productRatingInput.clear();
+                    productCategoryInput.getSelectionModel().clearSelection();
+
+                } catch (NumberFormatException ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Prețul și ratingul trebuie să fie numere valide.");
+                    alert.showAndWait();
+                }
             });
 
             addProductBox.getChildren().addAll(productNameInput, productPriceInput, productDescriptionInput, productRatingInput, productCategoryInput, addProductButton);
@@ -155,30 +181,42 @@ public class ProjectApplication extends Application {
         // Tab-ul pentru Comenzi
         Tab ordersTab = new Tab("Comenzi");
         VBox ordersLayout = new VBox();
+        ordersLayout.setPadding(new Insets(10));
+        ordersLayout.setSpacing(10);
         ordersLayout.getChildren().add(new Label("Lista Comenzi:"));
         ListView<String> ordersList = new ListView<>();
+        // Implement orders list update method
         ordersLayout.getChildren().add(ordersList);
-        // Funcționalități pentru manager și angajați
         ordersTab.setContent(ordersLayout);
 
         // Tab-ul pentru Servicii
         Tab servicesTab = new Tab("Servicii");
         VBox servicesLayout = new VBox();
+        servicesLayout.setPadding(new Insets(10));
+        servicesLayout.setSpacing(10);
         servicesLayout.getChildren().add(new Label("Lista Servicii:"));
         ListView<String> serviceList = new ListView<>();
+        // Implement services list update method
         servicesLayout.getChildren().add(serviceList);
-        // Funcționalități pentru manager și angajați
         servicesTab.setContent(servicesLayout);
 
         // Tab-ul pentru Promoții
         Tab promotionsTab = new Tab("Promoții");
         VBox promotionsLayout = new VBox();
+        promotionsLayout.setPadding(new Insets(10));
+        promotionsLayout.setSpacing(10);
         promotionsLayout.getChildren().add(new Label("Lista Promoții:"));
         ListView<String> promotionsList = new ListView<>();
+        // Implement promotions list update method
         promotionsLayout.getChildren().add(promotionsList);
+
+        promotionsTab.setContent(promotionsLayout);
+
         // Funcționalități pentru manager
-        if (currentPerson.getRole().equals(Role.SENIOR)) {
-            HBox addPromotionBox = new HBox();
+        if (currentPerson.getRole() == Role.MANAGER) {
+            HBox addPromotionBox = new HBox(10);
+            addPromotionBox.setPadding(new Insets(10));
+
             TextField promoNameInput = new TextField();
             promoNameInput.setPromptText("Nume Promoție");
             ComboBox<Product> promoProductInput = new ComboBox<>();
@@ -187,32 +225,58 @@ public class ProjectApplication extends Application {
             TextField promoDiscountInput = new TextField();
             promoDiscountInput.setPromptText("Discount (%)");
             Button addPromotionButton = new Button("Adaugă Promoție");
+
             addPromotionButton.setOnAction(e -> {
                 String name = promoNameInput.getText();
-                List<Product> products = List.of(promoProductInput.getValue());
-                double discount = Double.parseDouble(promoDiscountInput.getText());
-                Promotion promo = new Promotion();
-                //name, products, discount
-                promo.setName(name);
-                promo.setProductIds(products.stream().map(Product::getId).collect(Collectors.toList()));
-                promotionController.addPromotion(promo);
+                Product product = promoProductInput.getValue();
+                String discountText = promoDiscountInput.getText();
 
+                if (name.isEmpty() || product == null || discountText.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Toate câmpurile trebuie completate.");
+                    alert.showAndWait();
+                    return;
+                }
+
+                try {
+                    double discount = Double.parseDouble(discountText);
+
+                    Promotion promo = new Promotion();
+                    promo.setName(name);
+                    promo.setProductIds(List.of(product.getId()));
+
+
+                    promotionController.addPromotion(promo);
+
+                    promoNameInput.clear();
+                    promoProductInput.getSelectionModel().clearSelection();
+                    promoDiscountInput.clear();
+
+                } catch (NumberFormatException ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Discountul trebuie să fie un număr valid.");
+                    alert.showAndWait();
+                }
             });
+
             addPromotionBox.getChildren().addAll(promoNameInput, promoProductInput, promoDiscountInput, addPromotionButton);
             promotionsLayout.getChildren().add(addPromotionBox);
         }
 
-        promotionsTab.setContent(promotionsLayout);
-
         // Tab-ul pentru Angajați
-        if (currentPerson.getRole() == Role.SENIOR) {
+        if (currentPerson.getRole() == Role.MANAGER) {
             Tab employeesTab = new Tab("Angajați");
             VBox employeesLayout = new VBox();
+            employeesLayout.setPadding(new Insets(10));
+            employeesLayout.setSpacing(10);
             employeesLayout.getChildren().add(new Label("Lista Angajați:"));
             ListView<String> employeeList = new ListView<>();
+            // Implement employee list update method
             employeesLayout.getChildren().add(employeeList);
-            // Funcționalități pentru manager
-            HBox addEmployeeBox = new HBox();
+
+            HBox addEmployeeBox = new HBox(10);
+            addEmployeeBox.setPadding(new Insets(10));
+
             TextField employeeUsernameInput = new TextField();
             employeeUsernameInput.setPromptText("Username");
             PasswordField employeePasswordInput = new PasswordField();
@@ -220,25 +284,34 @@ public class ProjectApplication extends Application {
             CheckBox isJuniorInput = new CheckBox("Junior");
             CheckBox isSeniorInput = new CheckBox("Senior");
             Button addEmployeeButton = new Button("Adaugă Angajat");
-            addEmployeeButton.setOnAction(e -> {
 
+            addEmployeeButton.setOnAction(e -> {
                 String username = employeeUsernameInput.getText();
                 String password = employeePasswordInput.getText();
                 boolean isJunior = isJuniorInput.isSelected();
                 boolean isSenior = isSeniorInput.isSelected();
 
+                if (username.isEmpty() || password.isEmpty() || (!isJunior && !isSenior)) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Toate câmpurile trebuie completate și trebuie selectat un rol.");
+                    alert.showAndWait();
+                    return;
+                }
+
                 Person employee = new Person();
-                //Username, password, isManager, isSenior
-                employee.setName(username);
                 employee.setUsername(username);
                 employee.setPassword(password);
-                if (isJunior) {
-                    employee.setRole(Role.JUNIOR);
-                } else if (isSenior) {
-                    employee.setRole(Role.SENIOR);
-                }
+                employee.setRole(isJunior ? Role.JUNIOR : Role.SENIOR);
+
                 personController.addPerson(employee);
+                // Implement employee list update method
+
+                employeeUsernameInput.clear();
+                employeePasswordInput.clear();
+                isJuniorInput.setSelected(false);
+                isSeniorInput.setSelected(false);
             });
+
             addEmployeeBox.getChildren().addAll(employeeUsernameInput, employeePasswordInput, isJuniorInput, isSeniorInput, addEmployeeButton);
             employeesLayout.getChildren().add(addEmployeeBox);
             employeesTab.setContent(employeesLayout);
@@ -255,7 +328,6 @@ public class ProjectApplication extends Application {
 
         primaryStage.setScene(scene);
         primaryStage.show();
-
     }
 
     private void updateProductList(ListView<String> productList) {
@@ -264,5 +336,4 @@ public class ProjectApplication extends Application {
             productList.getItems().add(product.getType().toString() + ": " + product.getName() + " - " + product.getPrice() + " Lei");
         }
     }
-
 }
