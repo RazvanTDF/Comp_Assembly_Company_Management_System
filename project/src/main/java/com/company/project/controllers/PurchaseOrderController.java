@@ -1,9 +1,8 @@
 package com.company.project.controllers;
 
+import com.company.project.models.Product;
 import com.company.project.models.PurchaseOrder;
 import com.company.project.services.OrderService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,15 +18,19 @@ public class PurchaseOrderController {
     }
 
     @GetMapping
-    public List<PurchaseOrder> getAllOrders(@PathVariable Long personId) {
-        List<PurchaseOrder> purchaseOrders = orderService.getAllOrders();
-        return purchaseOrders;
+    public List<PurchaseOrder> getAllOrders() {
+        return orderService.getAllOrders();
     }
 
 
     @GetMapping("/{id}")
     public PurchaseOrder getOrderById(@PathVariable Long id) {
         return orderService.getOrderById(id);
+    }
+
+    @GetMapping("products/{id}")
+    public List<Product> getProductsByOrderId(@PathVariable Long id) {
+        return orderService.getProductsByOrderId(id);
     }
 
     @PostMapping("/{id}")
@@ -43,5 +46,10 @@ public class PurchaseOrderController {
     @DeleteMapping("/{id}")
     public void deleteOrder(@PathVariable Long id) {
         orderService.deleteOrder(id);
+    }
+
+    @GetMapping("/{userId}")
+    public List<PurchaseOrder> getOrdersByUserId(Long userId) {
+        return orderService.getOrdersByUserId(userId);
     }
 }

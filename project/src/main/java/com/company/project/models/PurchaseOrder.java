@@ -3,18 +3,21 @@ package com.company.project.models;
 import com.company.project.models.enums.OrderStatus;
 import com.company.project.models.enums.OrderType;
 import jakarta.persistence.*;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
+import static jakarta.persistence.FetchType.LAZY;
+
 @Entity
+@Transactional
 public class PurchaseOrder {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long productId;
-
     @ManyToOne
-    @JoinColumn(name = "person_id")
+    @OneToMany(fetch=LAZY)
     private Person person;
 
     @ManyToMany
@@ -48,13 +51,6 @@ public class PurchaseOrder {
         this.id = id;
     }
 
-    public Long getProductId() {
-        return productId;
-    }
-
-    public void setProductId(Long productId) {
-        this.productId = productId;
-    }
 
     public Person getPerson() {
         return person;
@@ -101,7 +97,6 @@ public class PurchaseOrder {
     public String toString() {
         return "Order{" +
                 "id=" + id +
-                ", productId=" + productId +
                 ", personId=" + person.getId() +
                 ", type=" + type +
                 ", status=" + status +

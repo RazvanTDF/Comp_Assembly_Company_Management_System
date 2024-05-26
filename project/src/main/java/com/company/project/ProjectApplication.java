@@ -2,22 +2,25 @@ package com.company.project;
 
 import com.company.project.controllers.*;
 import com.company.project.models.*;
+import com.company.project.models.enums.OrderStatus;
+import com.company.project.models.enums.OrderType;
 import com.company.project.models.enums.ProductType;
 import com.company.project.models.enums.Role;
 import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +36,8 @@ public class ProjectApplication extends Application {
 
     private Person currentPerson;
 
+    private Stage mainStage;
+
     public static void main(String[] args) {
         launch(args);
     }
@@ -47,8 +52,10 @@ public class ProjectApplication extends Application {
     }
 
     @Override
-    public void start(Stage primaryStage) throws Exception {
-        initial(primaryStage);
+    public void start(Stage primaryStage) {
+        mainStage = primaryStage;
+        currentPerson = Person.fetchDefaultUser();
+        paginaUnu();
     }
 
     @Override
@@ -56,10 +63,83 @@ public class ProjectApplication extends Application {
         context.close();
     }
 
+
     public void initial(Stage primaryStage) {
         primaryStage.setTitle("Sistem de Management al Producției");
 
         // Ecranul de autentificare
+        BorderPane loginPane = new BorderPane();
+
+        Scene loginScene = new Scene(loginPane, 400, 300);
+        primaryStage.setScene(loginScene);
+        primaryStage.show();
+    }
+
+    private void paginaUnu() {
+        switch (currentPerson.getRole()) {
+            case UNREGISTERED -> {
+                displayAnonUser();
+            }
+            case MANAGER -> {
+                displayManager();
+            }
+            case SENIOR -> {
+                displaySenior();
+            }
+            case JUNIOR -> {
+                displayJunior();
+            }
+            case CLIENT -> {
+                displayClient();
+            }
+        }
+    }
+
+    private void displayAnonUser() {
+        TabPane tabPane = new TabPane();
+
+        //product tab
+        tabPane.getTabs().add(createProductTab());
+        tabPane.getTabs().add(createServicesTab());
+        tabPane.getTabs().add(createLoginTab());
+
+        BorderPane mainLayout = new BorderPane();
+        mainLayout.setCenter(tabPane);
+        Scene scene = new Scene(mainLayout, 800, 600);
+
+        mainStage.setScene(scene);
+        mainStage.show();
+    }
+
+    private void displayManager() {
+        TabPane tabPane = new TabPane();
+
+        //product tab
+        tabPane.getTabs().add(createProductTab());
+        tabPane.getTabs().add(createServicesTab());
+        tabPane.getTabs().add(createOrdersTab());
+
+        BorderPane mainLayout = new BorderPane();
+        mainLayout.setCenter(tabPane);
+        Scene scene = new Scene(mainLayout, 800, 600);
+
+        mainStage.setScene(scene);
+        mainStage.show();
+    }
+
+    private void displaySenior() {
+    }
+
+    private void displayJunior() {
+    }
+
+    private void displayClient() {
+
+    }
+
+    private Tab createLoginTab() {
+        Tab tab = new Tab("Login");
+
         BorderPane loginPane = new BorderPane();
         GridPane loginGrid = new GridPane();
         loginGrid.setPadding(new Insets(10, 10, 10, 10));
@@ -84,7 +164,7 @@ public class ProjectApplication extends Application {
             String password = passwordInput.getText();
             currentPerson = personController.getPersonByUsername(username);
             if (currentPerson != null && currentPerson.getPassword().equals(password)) {
-                showMainScreen(primaryStage);
+                paginaUnu();
             } else {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.setContentText("Invalid credentials");
@@ -94,15 +174,14 @@ public class ProjectApplication extends Application {
 
         loginGrid.getChildren().addAll(usernameLabel, usernameInput, passwordLabel, passwordInput, loginButton);
         loginPane.setCenter(loginGrid);
-        Scene loginScene = new Scene(loginPane, 400, 300);
-        primaryStage.setScene(loginScene);
-        primaryStage.show();
+
+        tab.setContent(loginPane);
+
+        return tab;
     }
 
-    private void showMainScreen(Stage primaryStage) {
-        // TabPane pentru a deține diferite secțiuni
-        TabPane tabPane = new TabPane();
 
+    private Tab createProductTab() {
         // Tab-ul pentru Produse
         Tab productsTab = new Tab("Produse");
         VBox productsLayout = new VBox();
@@ -110,8 +189,184 @@ public class ProjectApplication extends Application {
         productsLayout.setSpacing(10);
         productsLayout.getChildren().add(new Label("Catalog Produse:"));
         ListView<String> productList = new ListView<>();
+        productList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         updateProductList(productList);
         productsLayout.getChildren().add(productList);
+
+        if (!currentPerson.getRole().equals(Role.UNREGISTERED)) {
+            VBox createOrderLayout = new VBox();
+            createOrderLayout.setPadding(new Insets(10));
+            createOrderLayout.setSpacing(10);
+
+            HBox createOrderBox = new HBox(10);
+            createOrderBox.setPadding(new Insets(10));
+
+            Button createOrderButton = new Button("Creaza comanda");
+
+            createOrderButton.setOnAction(e -> {
+                var selected = productList.getSelectionModel().getSelectedItems();
+
+                var products = selected.stream().map(it -> {
+                    var idIndex = it.indexOf(":");
+                    var idString = it.substring(0, idIndex);
+                    long id = Long.parseLong(idString);
+                    return productController.getProductById(id);
+                }).toList();
+
+                System.out.println("Hello");
+                var order = new PurchaseOrder();
+                order.setStatus(OrderStatus.PENDING);
+                order.setPerson(currentPerson);
+                order.setType(OrderType.BUY);
+                order.setProducts(products);
+
+                System.out.println("world");
+                System.out.println("Order is " + order.getId() + " type " + order.getType());
+
+                try {
+                    purchaseOrderController.addOrder(order);
+                } catch (Exception x) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText(x.getLocalizedMessage());
+                    alert.showAndWait();
+                }
+
+                selected.forEach(it -> System.out.println("Selected " + it));
+            });
+
+            createOrderBox.getChildren().addAll(createOrderButton);
+            createOrderLayout.getChildren().add(createOrderBox);
+
+            productsLayout.getChildren().add(createOrderLayout);
+        }
+
+        productsTab.setContent(productsLayout);
+
+        return productsTab;
+    }
+
+
+    private Tab createOrdersTab() {
+        // Tab-ul pentru Comenzi
+
+        Tab ordersTab = new Tab("Comenzi");
+        SplitPane splitPane = new SplitPane();
+
+        VBox leftControl = new VBox(new Label("Left Control"));
+        VBox rightControl = new VBox(new Label("Right Control"));
+
+        splitPane.getItems().addAll(leftControl, rightControl);
+
+        leftControl.setPadding(new Insets(10));
+        leftControl.setSpacing(10);
+        leftControl.getChildren().add(new Label("Lista Comenzi:"));
+        ListView<String> ordersList = new ListView<>();
+        updateOrdersList(ordersList);
+        leftControl.getChildren().add(ordersList);
+        ordersList.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
+
+
+        Button selectOrder = new Button("Selecteaza comanda");
+        leftControl.getChildren().add(selectOrder);
+
+        selectOrder.setOnAction(e -> {
+            rightControl.getChildren().clear();
+
+            var selectedOrder = ordersList.getSelectionModel().getSelectedItems().getFirst();
+            var idIndex = selectedOrder.indexOf(":");
+            var idString = selectedOrder.substring(0, idIndex);
+            long orderId = Long.parseLong(idString);
+
+            rightControl.setPadding(new Insets(10));
+            rightControl.setSpacing(10);
+            rightControl.getChildren().add(new Label("Produse"));
+            ListView<String> productList = new ListView<>();
+            updateProductListForOrder(productList, orderId);
+            rightControl.getChildren().add(productList);
+
+            VBox setStatusLayout = new VBox();
+            setStatusLayout.setPadding(new Insets(10));
+            setStatusLayout.setSpacing(10);
+
+            HBox setStatusBox = new HBox(10);
+            setStatusBox.setPadding(new Insets(10));
+
+            CheckBox status_pending = new CheckBox("Pending");
+
+            //Asta trebuia sa fie luat din PurchaseOrder
+            status_pending.setSelected(true);
+
+            CheckBox status_processing = new CheckBox("Processing");
+            CheckBox status_canceled = new CheckBox("Cancel");
+            CheckBox status_complete = new CheckBox("Complete");
+            Button setStatusButton = new Button("Seteaza status");
+
+            setStatusButton.setOnAction(x -> {
+                boolean is_pending = status_pending.isSelected();
+                boolean is_processing = status_processing.isSelected();
+                boolean is_complete = status_complete.isSelected();
+                boolean is_canceled = status_canceled.isSelected();
+
+                var statusList = Arrays.asList(is_pending, is_canceled, is_complete, is_processing);
+
+                var selected = statusList.stream().filter(status -> status.equals(true)).toList();
+                if (selected.size() == 0) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Nici un status nu a fost selectat");
+                    alert.showAndWait();
+                } else if (selected.size() > 1) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setContentText("Selectati un singur status");
+                    alert.showAndWait();
+                } else {
+                    //TODO pruchaseOrder.setStatus(selected.selected.getFirst())
+                }
+            });
+
+            setStatusBox.getChildren().addAll(status_pending, status_processing, status_canceled, status_complete, setStatusButton);
+            setStatusLayout.getChildren().add(setStatusBox);
+
+            rightControl.getChildren().add(setStatusLayout);
+
+        });
+
+        ordersTab.setContent(splitPane);
+        return ordersTab;
+    }
+
+
+    private Tab createClientOrdersTab() {
+        // Tab-ul pentru Comenzi
+        Tab ordersTab = new Tab("Comenzi");
+        VBox ordersLayout = new VBox();
+        ordersLayout.setPadding(new Insets(10));
+        ordersLayout.setSpacing(10);
+        ordersLayout.getChildren().add(new Label("Lista Comenzi:"));
+        ListView<String> ordersList = new ListView<>();
+        updateClientOrdersList(ordersList);
+        ordersLayout.getChildren().add(ordersList);
+        ordersTab.setContent(ordersLayout);
+        return ordersTab;
+    }
+
+    private Tab createServicesTab() {
+        // Tab-ul pentru Servicii
+        Tab servicesTab = new Tab("Servicii");
+        VBox servicesLayout = new VBox();
+        servicesLayout.setPadding(new Insets(10));
+        servicesLayout.setSpacing(10);
+        servicesLayout.getChildren().add(new Label("Lista Servicii:"));
+        ListView<String> serviceList = new ListView<>();
+        // Implement services list update method
+        servicesLayout.getChildren().add(serviceList);
+        servicesTab.setContent(servicesLayout);
+        return servicesTab;
+    }
+
+
+    private void showMainScreen(Stage primaryStage) {
+        // TabPane pentru a deține diferite secțiuni
+        TabPane tabPane = new TabPane();
 
         // Funcționalități pentru manager pentru produse
         if (currentPerson.getRole() == Role.SENIOR) {
@@ -157,7 +412,7 @@ public class ProjectApplication extends Application {
                     product.setType(category);
 
                     productController.addProduct(product);
-                    updateProductList(productList);
+                    //updateProductList(productList);
 
                     productNameInput.clear();
                     productPriceInput.clear();
@@ -173,32 +428,9 @@ public class ProjectApplication extends Application {
             });
 
             addProductBox.getChildren().addAll(productNameInput, productPriceInput, productDescriptionInput, productRatingInput, productCategoryInput, addProductButton);
-            productsLayout.getChildren().add(addProductBox);
+            //TODO productsLayout.getChildren().add(addProductBox);
         }
 
-        productsTab.setContent(productsLayout);
-
-        // Tab-ul pentru Comenzi
-        Tab ordersTab = new Tab("Comenzi");
-        VBox ordersLayout = new VBox();
-        ordersLayout.setPadding(new Insets(10));
-        ordersLayout.setSpacing(10);
-        ordersLayout.getChildren().add(new Label("Lista Comenzi:"));
-        ListView<String> ordersList = new ListView<>();
-        // Implement orders list update method
-        ordersLayout.getChildren().add(ordersList);
-        ordersTab.setContent(ordersLayout);
-
-        // Tab-ul pentru Servicii
-        Tab servicesTab = new Tab("Servicii");
-        VBox servicesLayout = new VBox();
-        servicesLayout.setPadding(new Insets(10));
-        servicesLayout.setSpacing(10);
-        servicesLayout.getChildren().add(new Label("Lista Servicii:"));
-        ListView<String> serviceList = new ListView<>();
-        // Implement services list update method
-        servicesLayout.getChildren().add(serviceList);
-        servicesTab.setContent(servicesLayout);
 
         // Tab-ul pentru Promoții
         Tab promotionsTab = new Tab("Promoții");
@@ -319,7 +551,7 @@ public class ProjectApplication extends Application {
         }
 
         // Adaugă tab-urile în tabPane
-        tabPane.getTabs().addAll(productsTab, ordersTab, servicesTab, promotionsTab);
+        tabPane.getTabs().addAll(promotionsTab);
 
         // Scena principală
         BorderPane mainLayout = new BorderPane();
@@ -333,7 +565,30 @@ public class ProjectApplication extends Application {
     private void updateProductList(ListView<String> productList) {
         productList.getItems().clear();
         for (Product product : productController.getAllProducts()) {
-            productList.getItems().add(product.getType().toString() + ": " + product.getName() + " - " + product.getPrice() + " Lei");
+            productList.getItems().add(product.getId() + ":" + product.getType().toString() + ": " + product.getName() + " - " + product.getPrice() + " Lei");
+        }
+    }
+
+
+    private void updateProductListForOrder(ListView<String> productList, Long orderId) {
+        var products = purchaseOrderController.getProductsByOrderId(orderId);
+        for (Product product : products) {
+            productList.getItems().add(product.getId() + ":" + product.getType().toString() + ": " + product.getName() + " - " + product.getPrice() + " Lei");
+        }
+
+    }
+
+    private void updateOrdersList(ListView<String> ordersList) {
+        ordersList.getItems().clear();
+        for (PurchaseOrder order : purchaseOrderController.getAllOrders()) {
+            ordersList.getItems().add(order.getId() + ":" + order.getType().toString() + ": " + order.getType() + " - " + order.getStatus());
+        }
+    }
+
+    private void updateClientOrdersList(ListView<String> ordersList) {
+        ordersList.getItems().clear();
+        for (PurchaseOrder order : purchaseOrderController.getOrdersByUserId(currentPerson.getId())) {
+            ordersList.getItems().add(order.getId() + ":" + order.getType().toString() + ": " + order.getType() + " - " + order.getStatus());
         }
     }
 }

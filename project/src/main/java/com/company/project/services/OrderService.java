@@ -5,6 +5,7 @@ import com.company.project.models.PurchaseOrder;
 import com.company.project.models.Product;
 import com.company.project.models.enums.ProductType;
 import com.company.project.repositories.OrderRepository;
+import com.company.project.repositories.PersonRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +29,10 @@ public class OrderService{
         return (PurchaseOrder) orderRepository.findById(id).orElse(null);
     }
 
+    public List<Product> getProductsByOrderId(Long id){
+        return orderRepository.findById(id).get().getProducts();
+    }
+
     public PurchaseOrder addOrder(PurchaseOrder purchaseOrder) {
         // Verifică dacă produsele din comandă sunt disponibile în stoc sau dacă personul are suficiente fonduri
         for (Product product : purchaseOrder.getProducts()) {
@@ -35,7 +40,7 @@ public class OrderService{
                 throw new RuntimeException("Product " + product.getName() + " is not available in stock");
             }
         }
-        if (!checkPersonFunds(purchaseOrder.getPerson())) {
+        if (!checkPersonFunds(purchaseOrder, personService.getPersonsById(purchaseOrder.getPerson().getId()))) {
             throw new RuntimeException("Person does not have sufficient funds to place the order");
         }
 
@@ -65,9 +70,9 @@ public class OrderService{
         return availableQuantity > 0; // Returnăm true dacă există cantitate disponibilă în stoc, altfel returnăm false
     }
 
-    private boolean checkPersonFunds(Person person) {
+    private boolean checkPersonFunds(PurchaseOrder purchaseOrder, Person person) {
         // Verificăm dacă personul are suficiente fonduri pentru a plăti comanda
-        double orderTotal = calculateOrderTotal(person.getOrder()); // Calculăm totalul comenzii
+        double orderTotal = calculateOrderTotal(purchaseOrder); // Calculăm totalul comenzii
         return person.getBalance() >= orderTotal; // Returnăm true dacă soldul personului este mai mare sau egal cu totalul comenzii, altfel returnăm false
     }
 
@@ -93,5 +98,9 @@ public class OrderService{
         // Vom folosi această metodă pentru a obține tipul și apoi îl vom converti la enum ProductType
         String typeAsString = String.valueOf(product.getType()); // Presupunem că avem o metodă getType() care returnează tipul sub formă de string
         return ProductType.valueOf(typeAsString); // Convertem string-ul la enum ProductType
+    }
+
+    public List<PurchaseOrder> getOrdersByUserId(Long userId) {
+        return orderRepository.findByPerson_Id(userId);
     }
 }

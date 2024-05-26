@@ -43,6 +43,7 @@ public class ProductService {
             if (updatedProduct.getStars() >= 0) {
                 existingProduct.setStars(updatedProduct.getStars());
             }
+            existingProduct.setQuantity(updatedProduct.getQuantity());
             // Updatează restul câmpurilor după nevoie
             return productRepository.save(existingProduct);
         }

@@ -97,4 +97,10 @@ public class Person {
     }
 
     // Alte metode specifice pentru gestionarea contului personului pot fi adăugate aici, dacă este nevoie
+
+    static public Person fetchDefaultUser(){
+        var person = new Person();
+        person.setRole(Role.UNREGISTERED);
+        return person;
+    }
 }
